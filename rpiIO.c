@@ -11,18 +11,27 @@ const int PING_PIN = 7;					// Pin 7 on GPIO header
 const int CW = 0;
 const int CCW = 1;
 const int STOP = 2;
-const int LEFT_PWM = 10;				// Pin 24 on GPIO header
-const int RIGHT_PWM = 11;				// Pin 26 on GPIO header
-const int LEFT_DIR = 5;					// Pin 18 on GPIO header
-const int RIGHT_DIR = 6;				// Pin 22 on GPIO header
+//const int LEFT_PWM = 10;				// Pin 24 on GPIO header
+//const int RIGHT_PWM = 11;				// Pin 26 on GPIO header
+//const int LEFT_DIR = 5;					// Pin 18 on GPIO header
+//const int RIGHT_DIR = 6;				// Pin 22 on GPIO header
+int leftPwm = 10;
+int leftDir = 5;
+int rightPwm = 11;
+int rightDir = 6;
 
-void initMotors() {
-	pinMode(LEFT_PWM, OUTPUT);		  	// Set all motor pins to output
-	pinMode(RIGHT_PWM, OUTPUT);
-	pinMode(LEFT_DIR, OUTPUT);
-	pinMode(RIGHT_DIR, OUTPUT);
-	softPwmCreate(LEFT_PWM, 0, 100);  	// Initialize 100 Hz software pwm
-	softPwmCreate(RIGHT_PWM, 0, 100);
+void initMotors(int leftPwmIn, int leftDirIn, int rightPwmIn, int rightDirIn) {
+	leftPwm = leftPwmIn;
+	leftDir = leftDirIn;
+	rightPwm = rightPwmIn;
+	rightDir = rightDirIn; 	
+
+	pinMode(leftPwm, OUTPUT);		  	// Set all motor pins to output
+	pinMode(rightPwm, OUTPUT);
+	pinMode(leftDir, OUTPUT);
+	pinMode(rightDir, OUTPUT);
+	softPwmCreate(leftPwm, 0, 100);  	// Initialize 100 Hz software pwm
+	softPwmCreate(rightPwm, 0, 100);
 }
 
 // Sets the direction pin and software pwm for the left motor. The value of speed
@@ -35,8 +44,8 @@ void setLeftMotor(int speed) {
 	} else {
 		direction = 1;
 	}
-	digitalWrite(LEFT_DIR, direction);	// Set direction pin
-	softPwmWrite(LEFT_PWM, speed);		// Set motor pwm
+	digitalWrite(leftDir, direction);	// Set direction pin
+	softPwmWrite(leftPwm, speed);		// Set motor pwm
 }
 
 // Sets the direction pin and software pwm for the right motor. The value of speed
@@ -49,8 +58,8 @@ void setRightMotor(int speed) {
 	} else {
 		direction = 0;
 	}
-	digitalWrite(RIGHT_DIR, direction);
-	softPwmWrite(RIGHT_PWM, speed);
+	digitalWrite(rightDir, direction);
+	softPwmWrite(rightPwm, speed);
 }
 	
 // Reads the distance measurement from a single PING sensor.
