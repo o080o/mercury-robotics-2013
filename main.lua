@@ -7,9 +7,12 @@ port = 1025
 
 pins = {}
 pins.servo = 9
+pins.speedL = 10
+pins.speedR = 11
+pins.dirL = 5
+pinr.dirR = 6
 
 commands = {}
-
 ---------- command functions -------
 -- change the pin mapping
 function commands.remap(cmd, name, pin)
@@ -18,13 +21,33 @@ function commands.remap(cmd, name, pin)
 	return true --indicate success 
 end
 
+function commands.motortest(cmd)
+	io.setLeftMotor(50,1)
+	io.setRightMotor(50,1)
+end
+
+function commands.stop(cmd)
+	io.setLeftMotor(0,0)
+	io.setRightMotor(0,0)
+end
+
+function commands.init(cmd)
+	initHardware()
+end
+-------------------------------------
+
 -- initialize hardware
 local function initHardware()
 	io.initServo(pins.servo)
+	io.initMotors(pins.speedL,pins.dirL,pins.speedR,pins.dirR)
 end
 
 -- initialize control server
 local server,err = assert(socket.bind(addr, port),"TCP object creation failed.")
+
+initHardware()
+commands.motortest(nil)
+
 
 print("Waiting for connection...")
 client = server:accept()
