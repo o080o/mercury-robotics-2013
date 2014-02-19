@@ -34,6 +34,10 @@ end
 function commands.init(cmd)
 	initHardware()
 end
+
+function commands.echo(cmd, ...)
+	print (...)
+end
 -------------------------------------
 
 -- initialize hardware
@@ -42,31 +46,50 @@ local function initHardware()
 	io.initMotors(pins.speedL,pins.dirL,pins.speedR,pins.dirR)
 end
 
--- initialize control server
-local server,err = assert(socket.bind(addr, port),"TCP object creation failed.")
-
-initHardware()
-commands.motortest(nil)
-
-
-print("Waiting for connection...")
-client = server:accept()
-print("connection from "..client:getpeername())
 
 
 
 
-while true do
-	local c = client:receive(1) -- read one character
-	local cmdline,cmdwords,cmd -- declare local vars
-	if c == "!" then -- command message from client
-		cmdline = client:receive("*l")
-		cmdwords = util.words(cmdline)
-		cmd = cmdwords[1]
-		commands[cmd](unpack(cmdwords))
-	elseif c == "@" then -- data message from client
-		cmd = client:receive(10)
+
+local function clientWorker(client)
+	local c,cmdline,cmdwords,cmd -- declare local vars
+	while true do
+		c = client:receive(1) -- read one character
+		if c == "!" then -- command message from client
+			cmdline = client:receive("*l")
+			print(">>>!"..cmdline)
+			cmdwords = util.words(cmdline)
+			if cmdwords == {} then
+				print("no words!")
+			else
+				cmd = cmdwords[1]
+				if commands[cmd] then
+					commands[cmd](unpack(cmdwords))
+				end
+			end
+		elseif c == "@" then -- data message from client
+			cmd = client:receive("*l")
+			print(">>>@"..cmd)
+		elseif c == nil then -- timeout/disconnect
+			print("Connection from client terminated")
+			return
+		else -- unknown stuff....
+			cmd = client:receive("*l")
+			print(">>>"..cmd)
+		end
 	end
 end
 
+-- initialize control server
+local server,err = assert(socket.bind(addr, port),"TCP object creation failed.")
+initHardware() --setup all pin modes, PWM etc.
+
+-- wait for connections
+print("Waiting for connections...")
+while true do
+	client = server:accept()
+	print("connection from "..client:getpeername())
+	-- start a new worker thread.
+	clientWorker(client)
+end
 
