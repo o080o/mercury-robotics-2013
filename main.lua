@@ -10,7 +10,7 @@ pins.servo = 9
 pins.speedL = 10
 pins.speedR = 11
 pins.dirL = 5
-pinr.dirR = 6
+pins.dirR = 6
 
 commands = {}
 ---------- command functions -------
