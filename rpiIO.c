@@ -30,8 +30,8 @@ void initMotors(int leftPwmIn, int leftDirIn, int rightPwmIn, int rightDirIn) {
 	pinMode(rightPwm, OUTPUT);
 	pinMode(leftDir, OUTPUT);
 	pinMode(rightDir, OUTPUT);
-	softPwmCreate(leftPwm, 0, 100);  	// Initialize 100 Hz software pwm
-	softPwmCreate(rightPwm, 0, 100);
+	softPwmCreate(leftPwm, 0, 50);  	// Initialize 100 Hz software pwm
+	softPwmCreate(rightPwm, 0, 50);
 }
 
 // Sets the direction pin and software pwm for the left motor. The value of speed
@@ -166,6 +166,27 @@ static int LinitServo (lua_State *L){
 	return 0;
 }
 
+// Lua wrapper
+static int LinitMotors(lua_State *L){
+	double lpwmpin = luaL_checknumber(L,1);
+	double ldirpin = luaL_checknumber(L,2);
+	double rpwmpin = luaL_checknumber(L,3);
+	double rdirpin = luaL_checknumber(L,4);
+	initMotors(lpwmpin, ldirpin, rpwmpin, rdirpin);
+	return 0;
+}
+
+static int LsetLeftMotor(lua_State *L){
+	double spd = luaL_checknumber(L,1); 
+	setLeftMotor(spd);
+	return 0;
+}
+
+static int LsetRightMotor(lua_State *L){
+	double spd = luaL_checknumber(L,1); 
+	setRightMotor(spd);
+	return 0;
+}
 // Table structure containing all the wrapper functinos. Any new functions need
 // to be added in this table.
 static const struct luaL_Reg rpiIO[] = {
@@ -173,6 +194,9 @@ static const struct luaL_Reg rpiIO[] = {
 	{"readPing", LreadPing},
 	{"setServo", LsetServo},
 	{"initServo", LinitServo},
+	{"initMotors", LinitMotors},
+	{"setRightMotor", LsetRightMotor},
+	{"setLeftMotor", LsetLeftMotor},
 	{NULL,NULL} // last item must be NULL,NULL to signify end of table.
 };
 
