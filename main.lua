@@ -15,15 +15,19 @@ pins.dirL = 5
 pins.dirR = 6
 
 commands = {}
+
+local function sendStr(client, str)
+	client:send(str.."\n") -- no yielding for send
+end
 ---------- command functions -------
 -- change the pin mapping
 function commands.remap(client, name, pin)
 	if not name then
 		for name,pin in pairs(pins) do
-		sendStr(client, name.."="..(tostring pin))
+		sendStr(client, name.."="..(tostring(pin)))
 		end
 	elseif not pin then
-		sendStr(client, name.."="..(tostring pins[name]))
+		sendStr(client, name.."="..(tostring(pins[name])))
 	else
 		pins.name = tonumber( pin )
 		print(name.."is now on pin "..pin)
@@ -70,9 +74,6 @@ local function initHardware()
 end
 
 --------------- Socket Coroutine Functions -------------
-local function sendStr(client, str)
-	client:send(str.."\n") -- no yielding for send
-end
 
 -- blocking accept call that yields!
 local function accept(server)
