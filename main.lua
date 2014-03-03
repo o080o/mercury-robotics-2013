@@ -14,9 +14,22 @@ pins.speedR = 11
 pins.dirL = 5
 pins.dirR = 6
 
-commands = {}
+commands = {}	-- commands
+data = {}	-- global data table
+co = {}		-- coroutines
 
-local function sendStr(client, str)
+local function initialize() -- intitialize all hardware and data
+	io.initServo(pins.servo)
+	io.initMotors(pins.speedL,pins.dirL,pins.speedR,pins.dirR)
+end
+
+local function reset() -- reset robot state
+	data["Motors"]={0,0}
+	io.setLeftMotor(0,1)
+	io.setRightMotor(0,1)
+end
+
+local function sendStr(client, str) -- send a string
 	client:send(str.."\n") -- no yielding for send
 end
 ---------- command functions -------
@@ -54,7 +67,7 @@ function commands.stop(client)
 end
 
 function commands.init(client)
-	initHardware()
+	initialize()
 	sendStr(client, "Initialized")
 end
 
@@ -66,12 +79,6 @@ function commands.echo(client, ...)
 	print (...)
 end
 -------------------------------------
-
--- initialize hardware
-local function initHardware()
-	io.initServo(pins.servo)
-	io.initMotors(pins.speedL,pins.dirL,pins.speedR,pins.dirR)
-end
 
 --------------- Socket Coroutine Functions -------------
 
@@ -115,6 +122,7 @@ local function clientWorker(client)
 		cmdline = receive(client, "*l")
 		if not cmdline then
 			print("Connection from client terminated.")
+			reset()
 			return
 		end -- connection closed
 		print(">>>"..cmdline)
@@ -133,9 +141,11 @@ local function clientWorker(client)
 				print("no such command")
 			end
 		elseif c == "@" then -- data message from client
-			print("motors:"..args[1]..","..args[2])
-			io.setLeftMotor(args[1],1)
-			io.setRightMotor(args[2],1)
+			if table.getn(args)==1 then
+				data[cmd] = args[1]
+			else
+				data[cmd] = args
+			end
 		end
 	end
 end
@@ -153,8 +163,9 @@ local function acceptConnections(server)
 end
 local function mainLoop()
 	while running do
-		print(".")
-		socket.sleep(1)
+		-- set motors to speed.
+		io.setLeftMotor(data["Motors"][1],1)
+		io.setRightMotor(data["Motors"][2],1)
 		coroutine.yield()
 	end
 end
@@ -164,7 +175,6 @@ end
 local server = assert(socket.bind(addr, port))
 initHardware() --setup all pin modes, PWM etc.
 -- init coroutine table
-co = {}
 table.insert( co, coroutine.create(function () acceptConnections(server) end) )
 table.insert( co, coroutine.create(mainLoop) )
 
