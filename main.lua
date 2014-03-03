@@ -18,28 +18,40 @@ commands = {}
 ---------- command functions -------
 -- change the pin mapping
 function commands.remap(client, name, pin)
-	pins.name = tonumber( pin )
-	print(name.."is now on pin "..pin)
-	return true --indicate success 
+	if not name then
+		for name,pin in pairs(pins) do
+		sendStr(client, name.."="..(tostring pin))
+		end
+	elseif not pin then
+		sendStr(client, name.."="..(tostring pins[name]))
+	else
+		pins.name = tonumber( pin )
+		print(name.."is now on pin "..pin)
+	end
 end
 
-function commands.test(client, val)
-	io.setLeftMotor(val,1)
-	io.setRightMotor(val,1)
+function commands.motors(client, l,r)
+	if not l then l=0 end
+	if not r then r=0 end
+	io.setLeftMotor(l,1)
+	io.setRightMotor(r,1)
 end
 
 function commands.getSensors(client)
-	local data = "@sensor:0:100:12"
+	local data = "@sensor 0 100 12"
 	sendStr(client, data)
 end
 
 function commands.stop(client)
 	io.setLeftMotor(0,0)
 	io.setRightMotor(0,0)
+	print("Motors stopped")
+	sendStr(client, "Motors stopped")
 end
 
 function commands.init(client)
 	initHardware()
+	sendStr(client, "Initialized")
 end
 
 function commands.run(client)
@@ -105,8 +117,8 @@ local function clientWorker(client)
 			return
 		end -- connection closed
 		print(">>>"..cmdline)
-		c = cmdline[1]
-		cmdline = util.tail(cmdline)
+		c = string.sub(cmdline,1,1)
+		cmdline = string.sub(cmdline,2)
 
 		cmdwords = util.words(cmdline)
 		cmd = cmdwords[1]
@@ -164,7 +176,8 @@ while running do
 			print(k,"dead")
 		else
 			print(k)
-			coroutine.resume(c)
+			status,error = coroutine.resume(c)
+			if not status then print("Error with coroutine:\n"..error) end
 		end
 	end
 end
