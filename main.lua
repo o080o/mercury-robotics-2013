@@ -13,44 +13,40 @@ pins.speedL = 10
 pins.speedR = 11
 pins.dirL = 5
 pins.dirR = 6
---- helper functions
-local function sendStr(client, str)
-	client:send(str.."\n")
-end
 
 commands = {}
 ---------- command functions -------
 -- change the pin mapping
-function commands.remap(client,cmd, name, pin)
+function commands.remap(client, name, pin)
 	pins.name = tonumber( pin )
 	print(name.."is now on pin "..pin)
 	return true --indicate success 
 end
 
-function commands.test(client,cmd, val)
+function commands.test(client, val)
 	io.setLeftMotor(val,1)
 	io.setRightMotor(val,1)
 end
 
-function commands.getSensors(client,cmd)
+function commands.getSensors(client)
 	local data = "@sensor:0:100:12"
 	sendStr(client, data)
 end
 
-function commands.stop(client,cmd)
+function commands.stop(client)
 	io.setLeftMotor(0,0)
 	io.setRightMotor(0,0)
 end
 
-function commands.init(client,cmd)
+function commands.init(client)
 	initHardware()
 end
 
-function commands.run(client,cmd)
+function commands.run(client)
 	print("run started.")
 end
 
-function commands.echo(client,cmd, ...)
+function commands.echo(client, ...)
 	print (...)
 end
 -------------------------------------
@@ -61,115 +57,113 @@ local function initHardware()
 	io.initMotors(pins.speedL,pins.dirL,pins.speedR,pins.dirR)
 end
 
-local function getVals(line)
-	local i=1
-	local vals = {}
-	local idx = string.find(line, ":")
-	local rest = string.sub(line, idx+1)
-	print(rest)
-	while idx do
-		idx = string.find(rest, ":")
-		if idx then
-			val = string.sub(rest,1,idx-1) 
-			rest = string.sub(rest,idx+1)
-			print("val="..val)
-		else
-			print("val="..val)
-			val = rest
-		end
-		vals[i] = val
-		i=i+1
-	end
-	return vals
+--------------- Socket Coroutine Functions -------------
+local function sendStr(client, str)
+	client:send(str.."\n") -- no yielding for send
 end
-
-
-
-
-
-local function clientWorker(client)
-	local c,cmdline,cmdwords,cmd -- declare local vars
-	while true do
-		c = client:receive(1) -- read one character
-		if c == "!" then -- command message from client
-			cmdline = client:receive("*l")
-			if cmdline == nil then
-				print("Connection from client terminated")
-				return
-			end
-			print(">>>!"..cmdline)
-			cmdwords = util.words(cmdline)
-			if cmdwords == {} then
-				print("no words!")
-			else
-				cmd = cmdwords[1]
-				if commands[cmd] then
-					commands[cmd](client,unpack(cmdwords))
-				else
-					print("no such command")
-				end
-			end
-		elseif c == "@" then -- data message from client
-			cmd = client:receive("*l")
-			local vals = getVals(cmd)
-			print(">>>@"..cmd)
-			print("motors:"..vals[1]..","..vals[2])
-			io.setLeftMotor(vals[1],1)
-			io.setRightMotor(vals[2],1)
-			
-		elseif c == nil then -- timeout/disconnect
-			print("Connection from client terminated")
-			return
-		else -- unknown stuff....
-			cmd = client:receive("*l")
-			print(">>>"..cmd)
-		end
-	end
-end
-
-local v = getVals("biah:50:60")
-print(v[1])
-print(v[2])
-
 
 -- blocking accept call that yields!
 local function accept(server)
+	assert(server)
 	local client=nil
-	server:settimeout(0)
 	while not client do
-		server:accept()
-		yield(server)
+		server:settimeout(0)
+		client = server:accept()
+		coroutine.yield()
 	end
 	return client
 end
 
--- wait for connections
-local function acceptConnections(server)
-	print("Waiting for connections...")
-	while true do
-		client = accept(server)
-		--client = server:accept()
-		print("connection from "..client:getpeername())
-		-- start a new worker thread.
-		clientWorker(client)
+-- blocking yielding receive call.
+local function receive(client, pattern)
+	local ret = "" -- return value
+	local status = "timeout"
+	while status=="timeout" do
+		client:settimeout(0) --nonblocking
+		s,status,part = client:receive(pattern)
+		if status=="timeout" then coroutine.yield() end
+		if s then
+			ret = ret..s
+		elseif part then
+			ret = ret..part
+		end
+	end
+	if status=="closed" then
+		return nil
+	else
+		return ret
 	end
 end
 
-co = {}
-table.insert( co, coroutine.create(acceptConnections) )
-table.insert( co, mainLoop )
+-- listens and handles requests from client
+local function clientWorker(client)
+	local c,cmdline,cmdwords,cmd -- declare local vars
+	while running do
+		cmdline = receive(client, "*l")
+		if not cmdline then
+			print("Connection from client terminated.")
+			return
+		end -- connection closed
+		print(">>>"..cmdline)
+		c = cmdline[1]
+		cmdline = util.tail(cmdline)
+
+		cmdwords = util.words(cmdline)
+		cmd = cmdwords[1]
+		args = util.tail(cmdwords)
+
+		if c == "!" then -- command message from client
+			cmd = cmdwords[1]
+			if commands[cmd] then
+				commands[cmd](client,unpack(args))
+			else
+				print("no such command")
+			end
+		elseif c == "@" then -- data message from client
+			print("motors:"..args[1]..","..args[2])
+			io.setLeftMotor(args[1],1)
+			io.setRightMotor(args[2],1)
+		end
+	end
+end
+
+-- wait for connections
+local function acceptConnections(server)
+	while running do
+		print("Waiting for connections...")
+		client = accept(server)
+		print("connection from "..client:getpeername())
+		-- create a new coroutine for worker 
+		local worker = coroutine.create(function() clientWorker(client) end)
+		table.insert(co,worker)
+	end
+end
+local function mainLoop()
+	while running do
+		print(".")
+		socket.sleep(1)
+		coroutine.yield()
+	end
+end
+
 
 -- initialize control server
 local server = assert(socket.bind(addr, port))
 initHardware() --setup all pin modes, PWM etc.
+-- init coroutine table
+co = {}
+table.insert( co, coroutine.create(function () acceptConnections(server) end) )
+table.insert( co, coroutine.create(mainLoop) )
 
 while running do
 	-- loop through all coroutines, giving time to each
-	for k,c in ipairs(co) do
-	-- remove dead coroutines
+	for k,c in pairs(co) do
 		if coroutine.status(c) == "dead" then
+			-- remove dead coroutines
 			co[k] = nil
+			print(k,"dead")
 		else
+			print(k)
 			coroutine.resume(c)
 		end
 	end
