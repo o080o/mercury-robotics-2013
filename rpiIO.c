@@ -6,15 +6,15 @@
 #include <wiringPi.h>
 #include <softPwm.h>
 
-const int SERVO_PIN = 9;				// Pin 5 on GPIO header
-const int PING_PIN = 7;					// Pin 7 on GPIO header
+const int SERVO_PIN = 9;			// Pin 5 on GPIO header
+const int PING_PIN = 7;				// Pin 7 on GPIO header; pulse start pin for all PINGs
 const int CW = 0;
 const int CCW = 1;
 const int STOP = 2;
-//const int LEFT_PWM = 10;				// Pin 24 on GPIO header
-//const int RIGHT_PWM = 11;				// Pin 26 on GPIO header
-//const int LEFT_DIR = 5;					// Pin 18 on GPIO header
-//const int RIGHT_DIR = 6;				// Pin 22 on GPIO header
+//const int LEFT_PWM = 10;			// Pin 24 on GPIO header
+//const int RIGHT_PWM = 11;			// Pin 26 on GPIO header
+//const int LEFT_DIR = 5;			// Pin 18 on GPIO header
+//const int RIGHT_DIR = 6;			// Pin 22 on GPIO header
 int leftPwm = 10;
 int leftDir = 5;
 int rightPwm = 11;
@@ -71,12 +71,12 @@ double readPing(int pin) {
 	int endTime = 0;
 	int elapsed = 0;
 	int timeout = 0;
-	pinMode(pin, OUTPUT);
-	digitalWrite(pin, 1);
-	delayMicroseconds(5);
-	digitalWrite(pin, 0);
+	pinMode(PING_PIN, OUTPUT);
 	pinMode(pin, INPUT);
 	pullUpDnControl(pin, PUD_DOWN);
+	digitalWrite(PING_PIN, 1);
+	delayMicroseconds(5);
+	digitalWrite(PING_PIN, 0);
 	timeout = micros();
 	while(digitalRead(pin) == 0) {
 		// Wait for return signal to start, timeout 100 ms
